@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>الرقيب للصيانة — تطبيق ويب</title>
+<style>
+:root{font-family: 'Segoe UI', Tahoma, Arial, sans-serif; color:#0b2540}
+body{margin:0;background:#f3f6fb;display:flex;flex-direction:column;min-height:100vh}
+header{background:#0b63a3;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px}
+header h1{font-size:18px;margin:0}
+.container{flex:1;display:flex;flex-direction:column;gap:12px;padding:12px}
+.card{background:#fff;border-radius:10px;padding:12px;box-shadow:0 2px 8px rgba(11,99,163,0.06)}
+.nav{display:flex;gap:8px;overflow:auto;padding-bottom:4px}
+.btn{background:#0b63a3;color:#fff;padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
+.btn.secondary{background:#6b7280}
+.section-title{font-weight:700;margin-bottom:8px}
+.flex{display:flex;gap:12px}
+.col{flex:1}
+#chatWindow{height:300px;overflow:auto;padding:8px;border-radius:8px;border:1px solid #e6eef7;background:#fbfeff}
+.msg{margin-bottom:10px;padding:10px;border-radius:8px}
+.msg.user{background:#e6f4ff;margin-left:auto;max-width:82%}
+.msg.bot{background:#f1f3f5;max-width:82%}
+.controls{display:flex;gap:8px;align-items:flex-end}
+textarea{width:100%;min-height:56px;border-radius:8px;padding:8px;border:1px solid #d6e6f2;font-size:14px}
+.small{width:48%}
+.list{list-style:none;padding:0;margin:0}
+.list li{padding:8px;border-bottom:1px solid #f0f4f8}
+.link{color:#0b63a3;text-decoration:none}
+.invoice-table{width:100%;border-collapse:collapse}
+.invoice-table th,.invoice-table td{border:1px solid #e6eef7;padding:8px;text-align:right}
+.footer{padding:10px;text-align:center;color:#666;font-size:13px}
+.notice{background:#fff3cd;padding:8px;border-radius:8px;border:1px solid #ffe8a1;color:#665200;margin-bottom:8px}
+@media(max-width:720px){.flex{flex-direction:column}}
+</style>
+</head>
+<body>
+<header>
+  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <rect width="24" height="24" rx="5" fill="#fff"/>
+    <path d="M4 7h16M4 12h16M4 17h16" stroke="#0b63a3" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  <h1 id="appTitle">الرقيب للصيانة</h1>
+</header>
+<div class="container">
+  <div class="card">
+    <div class="nav">
+      <button class="btn" data-show="chat" aria-controls="chatPanel">دردشة AI</button>
+      <button class="btn" data-show="datasheets" aria-controls="datasheetsPanel">داتاشيت</button>
+      <button class="btn" data-show="schematics" aria-controls="schematicsPanel">مخططات</button>
+      <button class="btn" data-show="invoice" aria-controls="invoicePanel">إصدار فاتورة</button>
+      <button class="btn" data-show="contact" aria-controls="contactPanel">تواصل / روابط</button>
+      <button class="btn secondary" id="saveLocal">حفظ الإعدادات</button>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div id="chatPanel" class="card" data-panel="chat">
+    <div class="section-title" id="chatTitle">دردشة ذكية متخصصة في صيانة الإلكترونيات</div>
+    <div class="notice" id="chatNotice">ملاحظة: يمكنك تشغيل الوضع التجريبي (بدون مفتاح) أو الاتصال بخادم وسيط لإخفاء مفتاح OpenAI.</div>
+
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <select id="modeSelector" aria-label="وضع العمل">
+        <option value="demo">وضع العرض (بدون مفتاح)</option>
+        <option value="proxy">استخدم خادم وسيط (أدخل رابط الخادم)</option>
+      </select>
+      <input id="proxyUrl" type="text" placeholder="https://your-proxy.example.com/api/chat" style="flex:1;padding:8px;border-radius:6px;border:1px solid #d6e6f2;display:none">
+      <select id="modelSelect" style="width:160px;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+        <option value="gpt-4">gpt-4</option>
+        <option value="gpt-4o">gpt-4o</option>
+      </select>
+    </div>
+
+    <div id="chatWindow" style="margin-top:10px">
+      <div id="messages"></div>
+    </div>
+
+    <div style="margin-top:8px" class="controls">
+      <textarea id="userInput" placeholder="اكتب المشكلة أو سؤالك عن صيانة... مثال: التلفاز يطفئ بعد 10 دقائق"></textarea>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn" id="sendBtn">إرسال</button>
+        <button class="btn secondary" id="suggestBtn">اقترح سؤال</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATASHEETS -->
+  <div id="datasheetsPanel" class="card" data-panel="datasheets" style="display:none">
+    <div class="section-title">داتاشيت القطع الإلكترونية</div>
+    <p>أضف روابط ملفات PDF أو روابط خارجية إلى صفحات الداتاشيت. يمكنك إضافة وحذف الروابط في أي وقت.</p>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <input id="dsTitle" type="text" placeholder="اسم القطعة (مثال: LM317)" style="flex:1;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+      <input id="dsLink" type="text" placeholder="رابط الداتاشيت (PDF)" style="flex:2;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+      <button class="btn" id="addDs">أضف</button>
+    </div>
+    <ul id="dsList" class="list" style="margin-top:10px"></ul>
+  </div>
+
+  <!-- SCHEMATICS -->
+  <div id="schematicsPanel" class="card" data-panel="schematics" style="display:none">
+    <div class="section-title">مخططات الأجهزة</div>
+    <p>أضف روابط لمخططات أو صور المخططات. يُنصح برفع الملفات على Google Drive أو موقعك ونسخ رابط المشاركة.</p>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <input id="schTitle" type="text" placeholder="عنوان المخطط (مثال: مزود طاقة LG)" style="flex:1;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+      <input id="schLink" type="text" placeholder="رابط الصورة أو PDF" style="flex:2;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+      <button class="btn" id="addSch">أضف</button>
+    </div>
+    <ul id="schList" class="list" style="margin-top:10px"></ul>
+  </div>
+
+  <!-- INVOICE -->
+  <div id="invoicePanel" class="card" data-panel="invoice" style="display:none">
+    <div class="section-title">إصدار فاتورة</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="clientName" type="text" placeholder="اسم العميل" style="flex:1;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+      <input id="clientPhone" type="text" placeholder="هاتف العميل" style="width:180px;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+    </div>
+    <div style="margin-top:8px">
+      <table class="invoice-table" id="itemsTable">
+        <thead><tr><th>الوصف</th><th>الكمية</th><th>سعر الوحده</th><th>الاجمالي</th><th>إجراء</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="itemDesc" placeholder="وصف الخدمة أو القطعة" style="flex:1;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+        <input id="itemQty" type="number" value="1" style="width:80px;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+        <input id="itemPrice" type="number" value="0" style="width:120px;padding:8px;border-radius:6px;border:1px solid #d6e6f2">
+        <button class="btn" id="addItem">أضف بند</button>
+      </div>
+      <div style="margin-top:10px;text-align:left">
+        <div>الإجمالي: <span id="totalAmount">0</span> ريال</div>
+        <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" id="printInvoice">طباعة / حفظ كـ PDF</button>
+          <button class="btn secondary" id="clearInvoice">مسح</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACT -->
+  <div id="contactPanel" class="card" data-panel="contact" style="display:none">
+    <div class="section-title">تواصل وروابط</div>
+    <p>زرّ واحد للتواصل عبر واتساب، وروابط صفحاتك الرسمية.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <a id="whatsappLink" class="btn" href="#" target="_blank">مراسلة واتساب</a>
+      <a class="btn" id="facebookLink" href="#" target="_blank">فيسبوك</a>
+      <a class="btn" id="googleLink" href="#" target="_blank">مراجعة Google</a>
+      <a class="btn" id="youtubeLink" href="#" target="_blank">قناتي على يوتيوب</a>
+    </div>
+    <div style="margin-top:10px">
+      <label class="section-title">معلومات النشاط</label>
+      <div>اسم النشاط: <strong>الرقيب للصيانة والبرمجة</strong></div>
+      <div>واتساب: <strong id="waText">+967735707210</strong></div>
+    </div>
+  </div>
+
+</div>
+<footer class="footer">تحذير: لا تعمل على دوائر متصلة بالتيار. النصائح هنا معلومات عامة فقط. - الرقيب للصيانة والبرمجة</footer>
+
+<script>
+// ======= ترجمة تلقائية حسب لغة الجهاز (عربي/إنجليزي) ======
+const T = {
+  ar: {
+    chatTitle: 'دردشة ذكية متخصصة في صيانة الإلكترونيات',
+    chatNotice: 'ملاحظة: يمكنك تشغيل الوضع التجريبي (بدون مفتاح) أو الاتصال بخادم وسيط لإخفاء مفتاح OpenAI.',
+    send: 'إرسال',
+    suggest: 'اقترح سؤال',
+    datasheets: 'داتاشيت القطع الإلكترونية',
+    schematics: 'مخططات الأجهزة',
+    invoice: 'إصدار فاتورة',
+    contact: 'تواصل وروابط',
+    save: 'حفظ الإعدادات',
+    placeholder: 'اكتب المشكلة أو سؤالك عن صيانة... مثال: التلفاز يطفئ بعد 10 دقائق'
+  },
+  en: {
+    chatTitle: 'AI Chat — Electronics Repair',
+    chatNotice: 'Tip: Use demo mode (no key) or a proxy server to hide your OpenAI key.',
+    send: 'Send',
+    suggest: 'Suggest',
+    datasheets: 'Datasheets',
+    schematics: 'Schematics',
+    invoice: 'Create Invoice',
+    contact: 'Contact & Links',
+    save: 'Save Settings',
+    placeholder: 'Describe the fault... e.g. TV shuts down after 10 minutes'
+  }
+};
+
+function detectLang(){
+  try{ const l = (navigator.language || navigator.userLanguage || 'ar').toLowerCase(); return l.startsWith('ar') ? 'ar' : 'en'; }catch(e){return 'ar'}
+}
+const LANG = detectLang();
+function applyTexts(){
+  const t = T[LANG];
+  document.getElementById('chatTitle').innerText = t.chatTitle;
+  document.getElementById('chatNotice').innerText = t.chatNotice;
+  document.getElementById('sendBtn').innerText = t.send;
+  document.getElementById('suggestBtn').innerText = t.suggest;
+  document.getElementById('saveLocal').innerText = t.save;
+  document.getElementById('userInput').placeholder = t.placeholder;
+  // nav buttons (assumes order)
+  const nav = document.querySelectorAll('.nav button');
+  if(LANG==='ar'){
+    nav[0].innerText='دردشة AI'; nav[1].innerText='داتاشيت'; nav[2].innerText='مخططات'; nav[3].innerText='فاتورة'; nav[4].innerText='تواصل';
+  } else {
+    nav[0].innerText='Chat AI'; nav[1].innerText='Datasheets'; nav[2].innerText='Schematics'; nav[3].innerText='Invoice'; nav[4].innerText='Contact';
+    document.getElementById('appTitle').innerText = 'Al Raqeeb Repair';
+  }
+}
+applyTexts();
+
+// ======= Navigation between panels ======
+const panels = document.querySelectorAll('[data-panel]');
+document.querySelectorAll('[data-show]').forEach(btn=>btn.addEventListener('click', ()=>{
+  const show = btn.getAttribute('data-show');
+  panels.forEach(p=>p.style.display = p.getAttribute('data-panel')===show ? 'block' : 'none');
+}));
+
+// ======= Settings & Links (defaults from user) ======
+const defaultData = {
+  appName: 'الرقيب للصيانة والبرمجة',
+  whatsapp: '967735707210',
+  facebook: 'https://www.facebook.com/share/1KDF4fC6om/',
+  google: 'https://g.page/r/CcKYNjCGwWFaEBI/review',
+  youtube: 'https://youtube.com/channel/UCGfqqMv-dQ4Awbl_lfcRfPg?si=x0GmteD9RB2OksnG'
+};
+function loadSettings(){ try{ return Object.assign({}, defaultData, JSON.parse(localStorage.getItem('rqa_settings'))||{}); }catch(e){return defaultData} }
+function saveSettings(obj){ const s = Object.assign({}, loadSettings(), obj); localStorage.setItem('rqa_settings', JSON.stringify(s)); applyLinks(); }
+function applyLinks(){ const s = loadSettings(); document.getElementById('whatsappLink').href = 'https://wa.me/' + s.whatsapp; document.getElementById('facebookLink').href = s.facebook; document.getElementById('googleLink').href = s.google; document.getElementById('youtubeLink').href = s.youtube; document.getElementById('waText').innerText = '+' + s.whatsapp; }
+applyLinks();
+document.getElementById('saveLocal').addEventListener('click', ()=>{ saveSettings({}); alert(LANG==='ar' ? 'تم حفظ الإعدادات محليًا' : 'Settings saved locally'); });
+
+// ======= CHAT logic (demo local) ======
+const messagesEl = document.getElementById('messages');
+const userInput = document.getElementById('userInput');
+const sendBtnEl = document.getElementById('sendBtn');
+const suggestBtnEl = document.getElementById('suggestBtn');
+const modeSelector = document.getElementById('modeSelector');
+const proxyUrlInput = document.getElementById('proxyUrl');
+
+modeSelector.addEventListener('change', ()=>{ proxyUrlInput.style.display = modeSelector.value==='proxy' ? 'block' : 'none'; });
+
+function appendMessage(role, text){ const d = document.createElement('div'); d.className = 'msg ' + (role==='user' ? 'user' : 'bot'); d.innerHTML = `<div>${escapeHtml(text)}</div>`; messagesEl.appendChild(d); messagesEl.scrollTop = messagesEl.scrollHeight; }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+suggestBtnEl.addEventListener('click', ()=>{ const arr = [ 'التلفاز يقطع بعد 10 دقائق — ماذا أفحص؟', 'مزود طاقة الكمبيوتر لا يعطي فولت — خطوات الفحص؟', 'كيف أستبدل مكثف منتفخ؟' ]; userInput.value = arr[Math.floor(Math.random()*arr.length)]; });
+
+sendBtnEl.addEventListener('click', async ()=>{
+  const text = userInput.value.trim(); if(!text) return; appendMessage('user', text); userInput.value=''; appendMessage('bot', LANG==='ar' ? 'جارٍ تجهيز الرد...' : 'Preparing reply...');
+  if(modeSelector.value === 'demo'){
+    setTimeout(()=>{
+      messagesEl.removeChild(messagesEl.lastChild);
+      appendMessage('bot', demoResponse(text));
+    }, 700 + Math.random()*800);
+    return;
+  }
+  const proxy = proxyUrlInput.value.trim(); if(!proxy){ messagesEl.removeChild(messagesEl.lastChild); appendMessage('bot', LANG==='ar' ? 'الرجاء إدخال رابط خادم وسيط في الحقل' : 'Please enter proxy URL'); return; }
+  try{
+    const payload = { model: document.getElementById('modelSelect').value, messages: [ {role:'system', content: 'أنت مساعد صيانة إلكترونيات متخصص.'}, {role:'user', content: text} ] };
+    const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const d = await res.json(); messagesEl.removeChild(messagesEl.lastChild);
+    const reply = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) ? d.choices[0].message.content : (d.error || JSON.stringify(d)); appendMessage('bot', reply);
+  }catch(err){ messagesEl.removeChild(messagesEl.lastChild); appendMessage('bot', (LANG==='ar' ? 'خطأ في الاتصال بالخادم الوسيط: ' : 'Proxy error: ') + err.message); }
+});
+
+function demoResponse(t){ const s = t.toLowerCase(); if(s.includes('لا يعمل')||s.includes('لا يشتغل')) return LANG==='ar' ? 'ابدأ بتأكيد مصدر الطاقة، افحص الفيوز أو السلك، تحقق من المكثفات الظاهرة. ارسل قياسات الفولت إذا أمكن.' : 'Start by checking the power source, fuse and cables. Send voltage measurements if possible.'; if(s.includes('يفصل')||s.includes('يقطع')) return LANG==='ar' ? 'قد تكون مكثفات تالفة أو سخونة زائدة في المزود. افحص المراوح، وقياس فولت الإخراج عند التشغيل.' : 'Possible faulty caps or overheating. Check fans and output voltages.'; if(s.includes('مكثف')) return LANG==='ar' ? 'استبدل المكثف بقيمة مساوية أو أعلى قليلاً بالفولت، ونفس (أو أعلى) درجة الحرارة إن أمكن.' : 'Replace capacitor with equal or slightly higher voltage rating and same capacitance.'; return LANG==='ar' ? 'الوصف غير كافٍ — فضلاً أعطني تفاصيل (موديل، أرقام القطع، سلوك الجهاز، هل توجد أصوات أو روائح؟)' : 'Description insufficient — please provide model, part numbers, symptoms.' }
+
+// ======= DATASHEETS logic ======
+const dsList = document.getElementById('dsList'); document.getElementById('addDs').addEventListener('click', ()=>{ const title=document.getElementById('dsTitle').value.trim(); const link=document.getElementById('dsLink').value.trim(); if(!title||!link){ alert(LANG==='ar' ? 'أدخل عنوان ورابط' : 'Enter title and link'); return; } const arr = JSON.parse(localStorage.getItem('rqa_datasheets')||'[]'); arr.unshift({title,link}); localStorage.setItem('rqa_datasheets', JSON.stringify(arr)); renderDatasheets(); document.getElementById('dsTitle').value=''; document.getElementById('dsLink').value=''; }); function renderDatasheets(){ const a = JSON.parse(localStorage.getItem('rqa_datasheets')||'[]'); dsList.innerHTML=''; a.forEach((it,i)=>{ const li=document.createElement('li'); li.innerHTML = `<strong>${it.title}</strong><div><a class="link" href="${it.link}" target="_blank">${LANG==='ar' ? 'فتح / تحميل' : 'Open / Download'}</a> <button onclick="removeDs(${i})">${LANG==='ar' ? 'حذف' : 'Remove'}</button></div>`; dsList.appendChild(li); }); } window.removeDs = function(i){ const a=JSON.parse(localStorage.getItem('rqa_datasheets')||'[]'); a.splice(i,1); localStorage.setItem('rqa_datasheets', JSON.stringify(a)); renderDatasheets(); } renderDatasheets();
+
+// ======= SCHEMATICS logic ======
+const schList = document.getElementById('schList'); document.getElementById('addSch').addEventListener('click', ()=>{ const title=document.getElementById('schTitle').value.trim(); const link=document.getElementById('schLink').value.trim(); if(!title||!link){ alert(LANG==='ar' ? 'أدخل عنوان ورابط' : 'Enter title and link'); return; } const arr = JSON.parse(localStorage.getItem('rqa_schematics')||'[]'); arr.unshift({title,link}); localStorage.setItem('rqa_schematics', JSON.stringify(arr)); renderSchematics(); document.getElementById('schTitle').value=''; document.getElementById('schLink').value=''; }); function renderSchematics(){ const a = JSON.parse(localStorage.getItem('rqa_schematics')||'[]'); schList.innerHTML=''; a.forEach((it,i)=>{ const li=document.createElement('li'); li.innerHTML = `<strong>${it.title}</strong><div><a class="link" href="${it.link}" target="_blank">${LANG==='ar' ? 'عرض' : 'View'}</a> <button onclick="removeSch(${i})">${LANG==='ar' ? 'حذف' : 'Remove'}</button></div>`; schList.appendChild(li); }); } window.removeSch = function(i){ const a=JSON.parse(localStorage.getItem('rqa_schematics')||'[]'); a.splice(i,1); localStorage.setItem('rqa_schematics', JSON.stringify(a)); renderSchematics(); } renderSchematics();
+
+// ======= INVOICE logic ======
+const itemsTbody = document.querySelector('#itemsTable tbody'); const addItemBtn = document.getElementById('addItem'); const totalAmountEl = document.getElementById('totalAmount'); addItemBtn.addEventListener('click', ()=>{ const desc=document.getElementById('itemDesc').value.trim(); const qty=Number(document.getElementById('itemQty').value)||0; const price=Number(document.getElementById('itemPrice').value)||0; if(!desc||qty<=0){ alert(LANG==='ar' ? 'أدخل وصف وكمية صحيحة' : 'Enter valid description and qty'); return; } const arr=JSON.parse(localStorage.getItem('rqa_invoice_items')||'[]'); arr.push({desc,qty,price}); localStorage.setItem('rqa_invoice_items', JSON.stringify(arr)); renderItems(); document.getElementById('itemDesc').value=''; document.getElementById('itemQty').value=1; document.getElementById('itemPrice').value=0; }); function renderItems(){ const arr = JSON.parse(localStorage.getItem('rqa_invoice_items')||'[]'); itemsTbody.innerHTML=''; let total=0; arr.forEach((it,i)=>{ const row=document.createElement('tr'); const lineTotal=it.qty*it.price; total+=lineTotal; row.innerHTML = `<td>${it.desc}</td><td style="width:70px">${it.qty}</td><td style="width:100px">${it.price}</td><td style="width:110px">${lineTotal.toFixed(2)}</td><td style="width:80px"><button onclick="removeItem(${i})">${LANG==='ar' ? 'حذف' : 'Remove'}</button></td>`; itemsTbody.appendChild(row); }); totalAmountEl.innerText = total.toFixed(2); } window.removeItem = function(i){ const arr = JSON.parse(localStorage.getItem('rqa_invoice_items')||'[]'); arr.splice(i,1); localStorage.setItem('rqa_invoice_items', JSON.stringify(arr)); renderItems(); } renderItems(); document.getElementById('clearInvoice').addEventListener('click', ()=>{ if(confirm(LANG==='ar' ? 'مسح الفاتورة؟' : 'Clear invoice?')){ localStorage.removeItem('rqa_invoice_items'); renderItems(); document.getElementById('clientName').value=''; document.getElementById('clientPhone').value=''; } }); document.getElementById('printInvoice').addEventListener('click', ()=>{ const client=document.getElementById('clientName').value||'-'; const phone=document.getElementById('clientPhone').value||'-'; const arr=JSON.parse(localStorage.getItem('rqa_invoice_items')||'[]'); const total=totalAmountEl.innerText; const win=window.open('','_blank'); const html = `<!doctype html><html lang=\"ar\"><head><meta charset=\"utf-8\"><title>فاتورة - ${escapeHtml(client)}</title><style>body{font-family:Arial;text-align:right;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}</style></head><body><h2>فاتورة — الرقيب للصيانة والالبرمجة</h2><div>العميل: ${escapeHtml(client)} | هاتف: ${escapeHtml(phone)}</div><table><thead><tr><th>الوصف</th><th>كمية</th><th>سعر</th><th>الإجمالي</th></tr></thead><tbody>${arr.map(it=>`<tr><td>${escapeHtml(it.desc)}</td><td>${it.qty}</td><td>${it.price}</td><td>${(it.qty*it.price).toFixed(2)}</td></tr>`).join('')}</tbody></table><h3>الإجمالي: ${total} ريال</h3><div style=\"margin-top:20px\">التوقيع: ____________________</div><script>window.print();</script></body></html>`; win.document.write(html); win.document.close(); });
+// ======= Links init ======
+(function init(){ const s = loadSettings(); saveSettings(s); applyLinks(); })();
+</script>
+</body>
+</html>
